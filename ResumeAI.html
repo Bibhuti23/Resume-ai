@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Resume AI – Build ATS-Friendly Resumes</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --ink: #0f0e0d; --paper: #faf8f4; --cream: #f2ede4;
+    --gold: #c9a84c; --gold-light: #e8cc7a; --rust: #c0392b;
+    --sage: #4a7c59; --muted: #8a8278; --border: #d8d0c4;
+    --shadow: rgba(15,14,13,0.12);
+  }
+  html, body { height: 100%; font-family: 'DM Sans', sans-serif; background: var(--paper); color: var(--ink); }
+  body::before {
+    content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 9999;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    opacity: 0.5;
+  }
+  #app { min-height: 100vh; display: flex; flex-direction: column; }
+  nav {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 1.2rem 2.5rem; border-bottom: 1px solid var(--border);
+    background: var(--paper); position: sticky; top: 0; z-index: 100;
+  }
+  .logo { font-family: 'Playfair Display', serif; font-size: 1.5rem; font-weight: 900; letter-spacing: -0.02em; }
+  .logo span { color: var(--gold); }
+  .nav-tag { font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: var(--muted); background: var(--cream); border: 1px solid var(--border); padding: 0.2rem 0.6rem; border-radius: 2rem; }
+  .step-bar {
+    display: flex; align-items: center; justify-content: center; gap: 0;
+    padding: 1.5rem 2rem; background: var(--cream); border-bottom: 1px solid var(--border);
+    flex-wrap: wrap; row-gap: 0.5rem;
+  }
+  .step-item { display: flex; align-items: center; }
+  .step-dot {
+    display: flex; align-items: center; justify-content: center;
+    width: 2rem; height: 2rem; border-radius: 50%;
+    border: 2px solid var(--border); background: var(--paper);
+    font-size: 0.72rem; font-weight: 600; color: var(--muted); transition: all 0.3s;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .step-dot.active { background: var(--ink); border-color: var(--ink); color: #fff; }
+  .step-dot.done { background: var(--sage); border-color: var(--sage); color: #fff; }
+  .step-label { font-size: 0.72rem; font-weight: 500; color: var(--muted); margin-left: 0.4rem; white-space: nowrap; }
+  .step-label.active { color: var(--ink); font-weight: 600; }
+  .step-connector { width: 2rem; height: 2px; background: var(--border); margin: 0 0.3rem; }
+  .step-connector.done { background: var(--sage); }
+  main { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 3rem 1.5rem; }
+  .page-title { font-family: 'Playfair Display', serif; font-size: 2.2rem; font-weight: 700; text-align: center; margin-bottom: 0.5rem; }
+  .page-sub { color: var(--muted); text-align: center; font-size: 0.95rem; margin-bottom: 2.5rem; }
+  .card { background: #fff; border: 1px solid var(--border); border-radius: 1rem; padding: 2.5rem; width: 100%; max-width: 680px; box-shadow: 0 4px 32px var(--shadow); }
+  .signin-brand { text-align: center; margin-bottom: 2rem; }
+  .signin-brand h1 { font-family: 'Playfair Display', serif; font-size: 3rem; font-weight: 900; }
+  .signin-brand h1 span { color: var(--gold); }
+  .signin-brand p { color: var(--muted); margin-top: 0.4rem; font-size: 0.95rem; }
+  .form-group { margin-bottom: 1.2rem; }
+  label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.4rem; }
+  input[type=text], input[type=email], input[type=password], input[type=tel],
+  input[type=url], input[type=number], textarea, select {
+    width: 100%; padding: 0.75rem 1rem; border: 1.5px solid var(--border); border-radius: 0.5rem;
+    font-family: 'DM Sans', sans-serif; font-size: 0.95rem; background: var(--paper);
+    color: var(--ink); transition: border-color 0.2s; outline: none;
+  }
+  input:focus, textarea:focus, select:focus { border-color: var(--gold); }
+  textarea { resize: vertical; min-height: 80px; }
+  .divider { display: flex; align-items: center; gap: 1rem; margin: 1.5rem 0; color: var(--muted); font-size: 0.8rem; }
+  .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+    padding: 0.85rem 2rem; border-radius: 0.5rem; font-family: 'DM Sans', sans-serif;
+    font-size: 0.95rem; font-weight: 600; cursor: pointer; border: none; transition: all 0.2s;
+  }
+  .btn-primary { background: var(--ink); color: #fff; }
+  .btn-primary:hover { background: #2a2825; transform: translateY(-1px); box-shadow: 0 4px 16px var(--shadow); }
+  .btn-gold { background: var(--gold); color: #fff; }
+  .btn-gold:hover { background: #b8952e; transform: translateY(-1px); }
+  .btn-outline { background: transparent; color: var(--ink); border: 1.5px solid var(--border); }
+  .btn-outline:hover { border-color: var(--ink); }
+  .btn-danger { background: #fee2e2; color: var(--rust); border: none; }
+  .btn-danger:hover { background: #fecaca; }
+  .btn-sm { padding: 0.4rem 0.9rem; font-size: 0.82rem; }
+  .btn-full { width: 100%; }
+  .choice-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem; margin-bottom: 2rem; }
+  .choice-card {
+    border: 2px solid var(--border); border-radius: 0.75rem; padding: 2rem 1.5rem;
+    cursor: pointer; transition: all 0.2s; text-align: center; background: var(--paper);
+  }
+  .choice-card:hover { border-color: var(--gold); background: #fffdf6; transform: translateY(-2px); }
+  .choice-card.selected { border-color: var(--ink); background: var(--cream); }
+  .choice-icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
+  .choice-title { font-family: 'Playfair Display', serif; font-size: 1.2rem; font-weight: 700; margin-bottom: 0.3rem; }
+  .choice-desc { font-size: 0.82rem; color: var(--muted); line-height: 1.5; }
+  .template-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.2rem; margin-bottom: 2rem; }
+  .template-card {
+    border: 2px solid var(--border); border-radius: 0.75rem; overflow: hidden;
+    cursor: pointer; transition: all 0.2s; background: #fff;
+  }
+  .template-card:hover { border-color: var(--gold); transform: translateY(-2px); box-shadow: 0 8px 24px var(--shadow); }
+  .template-card.selected { border-color: var(--ink); box-shadow: 0 0 0 3px rgba(15,14,13,0.1); }
+  .template-preview { height: 160px; position: relative; overflow: hidden; }
+  .template-badge {
+    position: absolute; top: 0.5rem; right: 0.5rem;
+    background: var(--sage); color: #fff; font-size: 0.65rem; font-weight: 700;
+    padding: 0.2rem 0.5rem; border-radius: 1rem; text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  .template-info { padding: 0.8rem 1rem; border-top: 1px solid var(--border); }
+  .template-name { font-weight: 700; font-size: 0.9rem; }
+  .template-desc { font-size: 0.75rem; color: var(--muted); margin-top: 0.2rem; }
+  .section-block { border: 1.5px solid var(--border); border-radius: 0.75rem; margin-bottom: 1rem; overflow: hidden; }
+  .section-header { display: flex; align-items: center; justify-content: space-between; padding: 0.9rem 1.2rem; background: var(--cream); cursor: pointer; }
+  .section-header-left { display: flex; align-items: center; gap: 0.6rem; font-weight: 600; font-size: 0.9rem; }
+  .section-body { padding: 1.2rem; border-top: 1px solid var(--border); }
+  .sub-item { background: var(--paper); border: 1px solid var(--border); border-radius: 0.5rem; padding: 1rem; margin-bottom: 0.75rem; position: relative; }
+  .sub-item-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
+  .sub-item-title { font-size: 0.8rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+  .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; }
+  .optional-label { font-size: 0.7rem; color: var(--muted); margin-left: 0.3rem; font-style: italic; }
+  .chip-group { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.5rem; }
+  .nav-btns { display: flex; justify-content: space-between; gap: 1rem; margin-top: 2rem; }
+  .preview-wrap { width: 100%; max-width: 900px; }
+  .preview-actions { display: flex; justify-content: center; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+  #pdf-preview {
+    width: 100%; min-height: 900px; border: 1px solid var(--border); border-radius: 1rem;
+    background: #fff; box-shadow: 0 8px 40px var(--shadow); overflow: hidden;
+  }
+  .resume-page { padding: 3rem 3.5rem; font-family: 'DM Sans', sans-serif; color: #111; min-height: 900px; }
+  .tpl-classic .resume-header { text-align: center; border-bottom: 2px solid #111; padding-bottom: 1.5rem; margin-bottom: 1.5rem; }
+  .tpl-classic .resume-name { font-family: 'Playfair Display', serif; font-size: 2.2rem; font-weight: 900; }
+  .tpl-classic .resume-contact { font-size: 0.8rem; color: #555; margin-top: 0.5rem; display: flex; justify-content: center; gap: 1rem; flex-wrap: wrap; }
+  .tpl-classic .section-title { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #555; border-bottom: 1px solid #ddd; padding-bottom: 0.3rem; margin: 1.2rem 0 0.8rem; }
+  .tpl-classic .entry-title { font-weight: 700; font-size: 0.95rem; }
+  .tpl-classic .entry-sub { font-size: 0.82rem; color: #444; }
+  .tpl-classic .entry-body { font-size: 0.82rem; color: #333; margin-top: 0.3rem; line-height: 1.5; }
+  .tpl-modern .resume-header { background: #1a1a2e; color: #fff; padding: 2rem; margin: -3rem -3.5rem 1.5rem; }
+  .tpl-modern .resume-name { font-family: 'DM Sans', sans-serif; font-size: 2rem; font-weight: 700; letter-spacing: -0.02em; }
+  .tpl-modern .resume-contact { font-size: 0.78rem; color: #aaa; margin-top: 0.5rem; display: flex; gap: 1rem; flex-wrap: wrap; }
+  .tpl-modern .section-title { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; color: #1a1a2e; margin: 1.2rem 0 0.7rem; position: relative; padding-left: 0.8rem; }
+  .tpl-modern .section-title::before { content: ''; position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 3px; height: 100%; background: #4a7c59; border-radius: 2px; }
+  .tpl-modern .entry-title { font-weight: 600; font-size: 0.92rem; }
+  .tpl-modern .entry-sub { font-size: 0.8rem; color: #666; }
+  .tpl-modern .entry-body { font-size: 0.8rem; color: #444; margin-top: 0.3rem; line-height: 1.5; }
+  .tpl-minimal .resume-header { margin-bottom: 1.5rem; padding-bottom: 1rem; }
+  .tpl-minimal .resume-name { font-family: 'DM Sans', sans-serif; font-size: 2.5rem; font-weight: 300; letter-spacing: -0.03em; }
+  .tpl-minimal .resume-contact { font-size: 0.78rem; color: #888; margin-top: 0.4rem; display: flex; gap: 1.5rem; flex-wrap: wrap; }
+  .tpl-minimal .section-title { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.15em; color: #bbb; margin: 1.2rem 0 0.7rem; }
+  .tpl-minimal .entry-title { font-weight: 500; font-size: 0.92rem; }
+  .tpl-minimal .entry-sub { font-size: 0.8rem; color: #888; }
+  .tpl-minimal .entry-body { font-size: 0.8rem; color: #555; margin-top: 0.3rem; line-height: 1.5; }
+  .tpl-sidebar { display: grid; grid-template-columns: 220px 1fr; min-height: 900px; }
+  .tpl-sidebar .sidebar-col { background: #2d3436; color: #fff; padding: 2rem 1.5rem; }
+  .tpl-sidebar .main-col { padding: 2rem 2rem; }
+  .tpl-sidebar .resume-name { font-family: 'Playfair Display', serif; font-size: 1.4rem; font-weight: 700; line-height: 1.2; margin-bottom: 1rem; }
+  .tpl-sidebar .sidebar-contact { font-size: 0.75rem; color: #b2bec3; margin-bottom: 0.3rem; word-break: break-all; }
+  .tpl-sidebar .sidebar-section-title { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; color: #fdcb6e; margin: 1.2rem 0 0.5rem; }
+  .tpl-sidebar .section-title { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #2d3436; border-bottom: 2px solid #2d3436; padding-bottom: 0.3rem; margin: 1rem 0 0.6rem; }
+  .tpl-sidebar .entry-title { font-weight: 600; font-size: 0.9rem; }
+  .tpl-sidebar .entry-sub { font-size: 0.78rem; color: #636e72; }
+  .tpl-sidebar .entry-body { font-size: 0.78rem; color: #444; margin-top: 0.3rem; line-height: 1.5; }
+  .entry-row { display: flex; justify-content: space-between; align-items: baseline; }
+  .entry-date { font-size: 0.75rem; color: #888; white-space: nowrap; }
+  .entry { margin-bottom: 0.8rem; }
+  .tag-ats { background: #dcfce7; color: #15803d; font-size: 0.65rem; font-weight: 700; padding: 0.15rem 0.5rem; border-radius: 1rem; text-transform: uppercase; letter-spacing: 0.05em; }
+  .info-box { background: var(--cream); border-left: 3px solid var(--gold); padding: 0.8rem 1rem; border-radius: 0 0.4rem 0.4rem 0; font-size: 0.82rem; color: var(--muted); margin-bottom: 1rem; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+  .anim { animation: fadeUp 0.4s ease both; }
+  @media (max-width: 600px) {
+    .choice-grid, .template-grid, .row-2 { grid-template-columns: 1fr; }
+    nav { padding: 1rem 1.2rem; }
+    main { padding: 1.5rem 1rem; }
+    .card { padding: 1.5rem; }
+    .tpl-sidebar { grid-template-columns: 1fr; }
+    .resume-page { padding: 1.5rem; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <nav>
+    <div class="logo">Resume<span>AI</span></div>
+    <span class="nav-tag">v1.0 · ATS Ready</span>
+  </nav>
+  <div id="step-bar"></div>
+  <main id="main-content"></main>
+</div>
+
+<script>
+let state = {
+  step: 0,
+  user: { name: '', email: '' },
+  experienceType: '',
+  template: '',
+  info: { fullName: '', email: '', phone: '', linkedin: '', github: '', portfolio: '' },
+  education: [],
+  sections: [],
+};
+
+const STEPS = ['Sign In','Profile','Template','Info','Education','Sections','Preview'];
+const TEMPLATES = [
+  { id:'classic', name:'Classic', desc:'Timeless layout, universally ATS-safe', color1:'#f8f4ee', color2:'#2c2c2c', accent:'#c9a84c' },
+  { id:'modern', name:'Modern', desc:'Dark header with green accent stripe', color1:'#1a1a2e', color2:'#fff', accent:'#4a7c59' },
+  { id:'minimal', name:'Minimal', desc:'Ultra-clean whitespace-driven design', color1:'#fff', color2:'#f5f5f5', accent:'#bbb' },
+  { id:'sidebar', name:'Sidebar Pro', desc:'Bold sidebar with highlights column', color1:'#2d3436', color2:'#fff', accent:'#fdcb6e' },
+];
+const SECTION_SUGGESTIONS = [
+  { icon:'💼', name:'Work Experience', fields:['Job Title','Company','Location','Start–End Date','Description'] },
+  { icon:'🛠️', name:'Skills', fields:['Skill Category','Skills List'] },
+  { icon:'📁', name:'Projects', fields:['Project Name','Tech Stack','Description','Link'] },
+  { icon:'🏆', name:'Achievements', fields:['Title','Issuer / Organization','Year','Description'] },
+  { icon:'📜', name:'Certifications', fields:['Certificate Name','Issuer','Year','Link'] },
+  { icon:'🌐', name:'Languages', fields:['Language','Proficiency'] },
+  { icon:'❤️', name:'Volunteering', fields:['Role','Organization','Year','Description'] },
+  { icon:'📣', name:'Publications', fields:['Title','Journal / Conference','Year','Link'] },
+];
+
+function renderStepBar() {
+  const bar = document.getElementById('step-bar');
+  if (state.step === 0) { bar.innerHTML = ''; bar.className = ''; return; }
+  const steps = STEPS.slice(1);
+  const cur = state.step - 1;
+  bar.className = 'step-bar';
+  bar.innerHTML = steps.map((s, i) => {
+    const done = i < cur, active = i === cur;
+    return `
+      ${i > 0 ? `<div class="step-connector ${i <= cur ? 'done' : ''}"></div>` : ''}
+      <div class="step-item">
+        <div class="step-dot ${done ? 'done' : active ? 'active' : ''}">${done ? '✓' : i+1}</div>
+        <span class="step-label ${active ? 'active' : ''}">${s}</span>
+      </div>`;
+  }).join('');
+}
+
+function renderPage() {
+  renderStepBar();
+  const pages = [p0_signin, p1_profile, p2_template, p3_info, p4_education, p5_sections, p6_preview];
+  pages[state.step]();
+}
+
+function go(step) {
+  state.step = step;
+  renderPage();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// PAGE 0 – SIGN IN
+function p0_signin() {
+  document.getElementById('main-content').innerHTML = `
+  <div class="card anim" style="max-width:440px">
+    <div class="signin-brand">
+      <h1>Resume<span>AI</span></h1>
+      <p>Build ATS-friendly resumes in minutes</p>
+    </div>
+    <div class="form-group"><label>Full Name</label><input type="text" id="si-name" placeholder="Jane Doe" value="${state.user.name}"/></div>
+    <div class="form-group"><label>Email</label><input type="email" id="si-email" placeholder="jane@email.com" value="${state.user.email}"/></div>
+    <div class="form-group"><label>Password</label><input type="password" id="si-pass" placeholder="Create a password"/></div>
+    <button class="btn btn-primary btn-full" onclick="doSignin()">Create Account & Continue →</button>
+    <div class="divider">or</div>
+    <button class="btn btn-outline btn-full" onclick="doSignin()">🔗 Continue with Google</button>
+  </div>`;
+}
+function doSignin() {
+  const n = document.getElementById('si-name').value.trim();
+  const e = document.getElementById('si-email').value.trim();
+  if (!n || !e) { alert('Please fill name and email.'); return; }
+  state.user = { name: n, email: e };
+  if (!state.info.fullName) state.info.fullName = n;
+  if (!state.info.email) state.info.email = e;
+  go(1);
+}
+
+// PAGE 1 – PROFILE TYPE
+function p1_profile() {
+  document.getElementById('main-content').innerHTML = `
+  <h2 class="page-title">Where are you in your career?</h2>
+  <p class="page-sub">This helps us surface the best templates and tips for you.</p>
+  <div class="card anim">
+    <div class="choice-grid">
+      <div class="choice-card ${state.experienceType==='fresher'?'selected':''}" onclick="setType('fresher')">
+        <div class="choice-icon">🌱</div>
+        <div class="choice-title">Fresher</div>
+        <div class="choice-desc">Recently graduated or less than 1 year of experience</div>
+      </div>
+      <div class="choice-card ${state.experienceType==='experienced'?'selected':''}" onclick="setType('experienced')">
+        <div class="choice-icon">🚀</div>
+        <div class="choice-title">Experienced</div>
+        <div class="choice-desc">1+ years of work experience in your field</div>
+      </div>
+    </div>
+    <div class="nav-btns">
+      <button class="btn btn-outline" onclick="go(0)">← Back</button>
+      <button class="btn btn-primary" onclick="if(!state.experienceType){alert('Please choose one')}else{go(2)}">Next →</button>
+    </div>
+  </div>`;
+}
+function setType(t) { state.experienceType = t; p1_profile(); }
+
+// PAGE 2 – TEMPLATE
+function p2_template() {
+  document.getElementById('main-content').innerHTML = `
+  <h2 class="page-title">Choose your Template</h2>
+  <p class="page-sub">All templates are ATS-optimised and recruiter-approved.</p>
+  <div class="card anim" style="max-width:760px">
+    <div class="template-grid">
+      ${TEMPLATES.map(t=>`
+      <div class="template-card ${state.template===t.id?'selected':''}" onclick="setTpl('${t.id}')">
+        <div class="template-preview" style="background:linear-gradient(135deg,${t.color1} 50%,${t.color2} 50%)">
+          <div style="position:absolute;inset:0;display:flex;flex-direction:column;padding:1rem;gap:0.4rem">
+            <div style="height:12px;width:60%;background:${t.accent};border-radius:2px;opacity:0.9"></div>
+            <div style="height:6px;width:40%;background:${t.accent};border-radius:2px;opacity:0.5"></div>
+            <div style="height:1px;background:${t.accent};opacity:0.3;margin:0.3rem 0"></div>
+            ${[70,85,55,90,65].map(w=>`<div style="height:5px;width:${w}%;background:${t.id==='sidebar'?'#fff':'#999'};border-radius:2px;opacity:0.4"></div>`).join('')}
+          </div>
+          <span class="template-badge">ATS ✓</span>
+        </div>
+        <div class="template-info">
+          <div class="template-name">${t.name} <span class="tag-ats">ATS Safe</span></div>
+          <div class="template-desc">${t.desc}</div>
+        </div>
+      </div>`).join('')}
+    </div>
+    <div class="nav-btns">
+      <button class="btn btn-outline" onclick="go(1)">← Back</button>
+      <button class="btn btn-primary" onclick="if(!state.template){alert('Pick a template')}else{go(3)}">Next →</button>
+    </div>
+  </div>`;
+}
+function setTpl(t) { state.template = t; p2_template(); }
+
+// PAGE 3 – PERSONAL INFO
+function p3_info() {
+  document.getElementById('main-content').innerHTML = `
+  <h2 class="page-title">Personal Information</h2>
+  <p class="page-sub">This appears at the top of your resume.</p>
+  <div class="card anim">
+    <div class="row-2">
+      <div class="form-group"><label>Full Name *</label><input type="text" id="fn" value="${state.info.fullName}" placeholder="Jane Doe"/></div>
+      <div class="form-group"><label>Email *</label><input type="email" id="em" value="${state.info.email}" placeholder="jane@example.com"/></div>
+    </div>
+    <div class="row-2">
+      <div class="form-group"><label>Phone *</label><input type="tel" id="ph" value="${state.info.phone}" placeholder="+91 9876543210"/></div>
+      <div class="form-group"><label>LinkedIn <span class="optional-label">(optional)</span></label><input type="url" id="li" value="${state.info.linkedin}" placeholder="linkedin.com/in/jane"/></div>
+    </div>
+    <div class="row-2">
+      <div class="form-group"><label>GitHub / Repo <span class="optional-label">(optional)</span></label><input type="url" id="gh" value="${state.info.github}" placeholder="github.com/jane"/></div>
+      <div class="form-group"><label>Portfolio <span class="optional-label">(optional)</span></label><input type="url" id="po" value="${state.info.portfolio}" placeholder="jane.dev"/></div>
+    </div>
+    <div class="nav-btns">
+      <button class="btn btn-outline" onclick="go(2)">← Back</button>
+      <button class="btn btn-primary" onclick="saveInfo()">Next →</button>
+    </div>
+  </div>`;
+}
+function saveInfo() {
+  const fn = document.getElementById('fn').value.trim();
+  const em = document.getElementById('em').value.trim();
+  const ph = document.getElementById('ph').value.trim();
+  if (!fn || !em || !ph) { alert('Please fill Name, Email and Phone.'); return; }
+  state.info = { fullName:fn, email:em, phone:ph, linkedin:document.getElementById('li').value.trim(), github:document.getElementById('gh').value.trim(), portfolio:document.getElementById('po').value.trim() };
+  go(4);
+}
+
+// PAGE 4 – EDUCATION
+function p4_education() {
+  if (!state.education.length) state.education = [newEdu()];
+  document.getElementById('main-content').innerHTML = `
+  <h2 class="page-title">Education</h2>
+  <p class="page-sub">Add your academic background. GPA and passing year are optional.</p>
+  <div class="card anim">
+    <div id="edu-list">${state.education.map((e,i)=>renderEduItem(e,i)).join('')}</div>
+    <button class="btn btn-outline btn-sm" onclick="addEdu()">+ Add Another Degree</button>
+    <div class="nav-btns">
+      <button class="btn btn-outline" onclick="go(3)">← Back</button>
+      <button class="btn btn-primary" onclick="saveEdu()">Next →</button>
+    </div>
+  </div>`;
+}
+function newEdu() { return { school:'', degree:'', field:'', year:'', gpa:'' }; }
+function renderEduItem(e, i) {
+  return `
+  <div class="sub-item">
+    <div class="sub-item-header">
+      <span class="sub-item-title">Degree ${i+1}</span>
+      ${i>0?`<button class="btn btn-danger btn-sm" onclick="removeEdu(${i})">Remove</button>`:''}
+    </div>
+    <div class="form-group"><label>Institution Name *</label><input type="text" id="edu-school-${i}" value="${e.school}" placeholder="MIT"/></div>
+    <div class="row-2">
+      <div class="form-group"><label>Degree / Program</label><input type="text" id="edu-deg-${i}" value="${e.degree}" placeholder="B.Tech Computer Science"/></div>
+      <div class="form-group"><label>Field of Study</label><input type="text" id="edu-field-${i}" value="${e.field}" placeholder="Computer Science"/></div>
+    </div>
+    <div class="row-2">
+      <div class="form-group"><label>Passing Year <span class="optional-label">(optional)</span></label><input type="number" id="edu-year-${i}" value="${e.year}" placeholder="2024" min="1990" max="2035"/></div>
+      <div class="form-group"><label>GPA / Percentage <span class="optional-label">(optional)</span></label><input type="text" id="edu-gpa-${i}" value="${e.gpa}" placeholder="3.8 / 4.0 or 85%"/></div>
+    </div>
+  </div>`;
+}
+function saveEduState() {
+  state.education = state.education.map((_,i)=>({
+    school: document.getElementById(`edu-school-${i}`)?.value.trim()||'',
+    degree: document.getElementById(`edu-deg-${i}`)?.value.trim()||'',
+    field: document.getElementById(`edu-field-${i}`)?.value.trim()||'',
+    year: document.getElementById(`edu-year-${i}`)?.value.trim()||'',
+    gpa: document.getElementById(`edu-gpa-${i}`)?.value.trim()||'',
+  }));
+}
+function addEdu() { saveEduState(); state.education.push(newEdu()); p4_education(); }
+function removeEdu(i) { saveEduState(); state.education.splice(i,1); p4_education(); }
+function saveEdu() {
+  saveEduState();
+  if (!state.education[0].school) { alert('Please add at least one institution.'); return; }
+  go(5);
+}
+
+// PAGE 5 – SECTIONS
+function p5_sections() {
+  document.getElementById('main-content').innerHTML = `
+  <h2 class="page-title">Build Your Sections</h2>
+  <p class="page-sub">Add sections and fill in the details. You can add as many as needed.</p>
+  <div class="card anim" style="max-width:760px">
+    <div class="info-box">💡 Tip: For ATS, use clear section names like "Work Experience", "Skills", "Education".</div>
+    <div style="margin-bottom:1.2rem">
+      <label>Quick Add a Section</label>
+      <div class="chip-group">
+        ${SECTION_SUGGESTIONS.map(s=>`<button class="btn btn-outline btn-sm" onclick="addSection('${s.name}','${s.icon}')">${s.icon} ${s.name}</button>`).join('')}
+        <button class="btn btn-outline btn-sm" onclick="addCustomSection()">✏️ Custom</button>
+      </div>
+    </div>
+    <div id="sections-list">${renderSections()}</div>
+    <div class="nav-btns">
+      <button class="btn btn-outline" onclick="go(4)">← Back</button>
+      <button class="btn btn-gold" onclick="go(6)">✨ Publish & Preview →</button>
+    </div>
+  </div>`;
+}
+function renderSections() {
+  if (!state.sections.length) return `<p style="color:var(--muted);text-align:center;padding:2rem;font-size:0.9rem">No sections yet. Add one above.</p>`;
+  return state.sections.map((sec,si)=>`
+  <div class="section-block">
+    <div class="section-header" onclick="toggleSection(${si})">
+      <span class="section-header-left">${sec.icon||'📌'} <span>${sec.name}</span> <small style="color:var(--muted);font-weight:400;font-size:0.75rem">${sec.items.length} item${sec.items.length!==1?'s':''}</small></span>
+      <div style="display:flex;gap:0.5rem">
+        <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();removeSection(${si})">Remove</button>
+        <span style="font-size:0.8rem;color:var(--muted)">${sec.open?'▲':'▼'}</span>
+      </div>
+    </div>
+    ${sec.open?`
+    <div class="section-body">
+      ${sec.items.map((item,ii)=>renderItem(sec,si,item,ii)).join('')}
+      <button class="btn btn-outline btn-sm" onclick="addItem(${si})">+ Add Item</button>
+    </div>`:''}
+  </div>`).join('');
+}
+function renderItem(sec, si, item, ii) {
+  const fields = getSectionFields(sec.name);
+  return `
+  <div class="sub-item">
+    <div class="sub-item-header">
+      <span class="sub-item-title">Item ${ii+1}</span>
+      ${sec.items.length>1?`<button class="btn btn-danger btn-sm" onclick="removeItem(${si},${ii})">✕</button>`:''}
+    </div>
+    ${fields.map(f=>`
+    <div class="form-group">
+      <label>${f}</label>
+      <input type="${f.toLowerCase().includes('link')||f.toLowerCase().includes('url')?'url':'text'}"
+        oninput="updateField(${si},${ii},'${f.replace(/'/g,"\\'")}',this.value)"
+        value="${(item[f]||'').replace(/"/g,'&quot;')}"
+        placeholder="${getPlaceholder(f)}"/>
+    </div>`).join('')}
+  </div>`;
+}
+function getSectionFields(name) {
+  const s = SECTION_SUGGESTIONS.find(x=>x.name===name);
+  return s ? s.fields : ['Title','Description'];
+}
+function getPlaceholder(f) {
+  const map = {'Job Title':'Software Engineer','Company':'Google','Location':'Bangalore, India','Start–End Date':'Jun 2022 – Present','Description':'Describe your role or project...','Skill Category':'Programming Languages','Skills List':'Python, Java, C++','Project Name':'E-Commerce App','Tech Stack':'React, Node.js, MongoDB','Link':'https://...','Title':'Best Paper Award','Issuer / Organization':'ACM','Year':'2024','Certificate Name':'AWS Certified','Issuer':'Amazon','Language':'Hindi','Proficiency':'Native','Role':'Mentor','Organization':'Code for Good','Journal / Conference':'IEEE'};
+  return map[f] || f + '...';
+}
+function toggleSection(i) { state.sections[i].open = !state.sections[i].open; p5_sections(); }
+function addSection(name, icon) { state.sections.push({ name, icon, open:true, items:[{}] }); p5_sections(); }
+function addCustomSection() { const name = prompt('Section name (e.g. "Hobbies", "Awards"):'); if (name) addSection(name,'📌'); }
+function removeSection(i) { state.sections.splice(i,1); p5_sections(); }
+function addItem(si) { state.sections[si].items.push({}); p5_sections(); }
+function removeItem(si,ii) { state.sections[si].items.splice(ii,1); p5_sections(); }
+function updateField(si,ii,field,val) { if(!state.sections[si].items[ii]) state.sections[si].items[ii]={}; state.sections[si].items[ii][field]=val; }
+
+// PAGE 6 – PREVIEW
+function p6_preview() {
+  document.getElementById('main-content').innerHTML = `
+  <div class="preview-wrap anim">
+    <div style="text-align:center;margin-bottom:1.5rem">
+      <h2 class="page-title" style="margin-bottom:0.3rem">🎉 Your Resume is Ready!</h2>
+      <p class="page-sub" style="margin-bottom:0">Review below, then download as PDF.</p>
+    </div>
+    <div class="preview-actions">
+      <button class="btn btn-outline" onclick="go(5)">← Edit Sections</button>
+      <button class="btn btn-gold" onclick="downloadPDF()">⬇ Download PDF</button>
+    </div>
+    <div id="pdf-preview">${buildResumeHTML()}</div>
+  </div>`;
+}
+
+function buildResumeHTML() {
+  const info = state.info;
+  const tpl = state.template || 'classic';
+  const contacts = [info.email, info.phone, info.linkedin, info.github, info.portfolio].filter(Boolean);
+  const eduHTML = state.education.filter(e=>e.school).map(e=>`
+    <div class="entry">
+      <div class="entry-row"><span class="entry-title">${e.school}</span><span class="entry-date">${e.year||''}</span></div>
+      <div class="entry-sub">${e.degree||''}${e.field?' · '+e.field:''}${e.gpa?' | GPA: '+e.gpa:''}</div>
+    </div>`).join('');
+  const sectionsHTML = state.sections.map(sec=>`
+    <div class="section-title">${sec.name}</div>
+    ${sec.items.map(item=>{
+      const title = item['Job Title']||item['Project Name']||item['Title']||item['Certificate Name']||item['Language']||item['Role']||Object.values(item)[0]||'';
+      const sub = [item['Company'],item['Location'],item['Tech Stack'],item['Issuer'],item['Issuer / Organization'],item['Proficiency'],item['Organization']].filter(Boolean).join(' · ');
+      const date = item['Start–End Date']||item['Year']||'';
+      const desc = item['Description']||item['Skills List']||item['Link']||'';
+      return `<div class="entry">
+        <div class="entry-row"><span class="entry-title">${title}</span><span class="entry-date">${date}</span></div>
+        ${sub?`<div class="entry-sub">${sub}</div>`:''}
+        ${desc?`<div class="entry-body">${desc}</div>`:''}
+      </div>`;}).join('')}`).join('');
+
+  if (tpl==='sidebar') return `<div class="resume-page tpl-sidebar">
+    <div class="sidebar-col">
+      <div class="resume-name">${info.fullName}</div>
+      ${contacts.map(c=>`<div class="sidebar-contact">→ ${c}</div>`).join('')}
+      <div class="sidebar-section-title">Education</div>
+      ${state.education.filter(e=>e.school).map(e=>`
+        <div style="font-size:0.78rem;margin-bottom:0.6rem;color:#dfe6e9">
+          <div style="font-weight:600">${e.school}</div>
+          <div style="color:#b2bec3">${e.degree||''} ${e.year?'· '+e.year:''}</div>
+          ${e.gpa?`<div style="color:#b2bec3">GPA: ${e.gpa}</div>`:''}
+        </div>`).join('')}
+    </div>
+    <div class="main-col">${sectionsHTML}</div>
+  </div>`;
+
+  return `<div class="resume-page tpl-${tpl}">
+    <div class="resume-header">
+      <div class="resume-name">${info.fullName}</div>
+      <div class="resume-contact">${contacts.map(c=>`<span>${c}</span>`).join('')}</div>
+    </div>
+    <div class="section-title">Education</div>
+    ${eduHTML}
+    ${sectionsHTML}
+  </div>`;
+}
+
+function downloadPDF() {
+  if (typeof window.jspdf === 'undefined') { alert('PDF library still loading, please try again in a moment.'); return; }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+  const info = state.info;
+  let y = 20;
+
+  doc.setFont('helvetica','bold'); doc.setFontSize(22);
+  doc.text(info.fullName||'Resume', 105, y, { align:'center' }); y += 8;
+
+  doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(100);
+  const contacts = [info.email,info.phone,info.linkedin,info.github,info.portfolio].filter(Boolean).join('  |  ');
+  doc.text(contacts, 105, y, { align:'center' }); y += 4;
+
+  doc.setDrawColor(180); doc.line(15,y,195,y); y += 6; doc.setTextColor(30);
+
+  function addSection(title) {
+    if (y > 265) { doc.addPage(); y = 20; }
+    doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(80);
+    doc.text(title.toUpperCase(), 15, y); y += 1;
+    doc.setDrawColor(200); doc.line(15,y,195,y); y += 5; doc.setTextColor(30);
+  }
+  function addEntry(t,sub,date,desc) {
+    if (y > 270) { doc.addPage(); y = 20; }
+    doc.setFont('helvetica','bold'); doc.setFontSize(10);
+    doc.text(t||'', 15, y);
+    if (date) { doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(120); doc.text(date,195,y,{align:'right'}); doc.setTextColor(30); }
+    y += 5;
+    if (sub) { doc.setFont('helvetica','italic'); doc.setFontSize(9); doc.setTextColor(80); doc.text(sub,15,y); y += 5; doc.setTextColor(30); }
+    if (desc) { doc.setFont('helvetica','normal'); doc.setFontSize(9); const lines = doc.splitTextToSize(desc,175); doc.text(lines,15,y); y += lines.length*4.5; }
+    y += 2;
+  }
+
+  addSection('Education');
+  state.education.filter(e=>e.school).forEach(e=>addEntry(e.school,[e.degree,e.field].filter(Boolean).join(' · '),e.year,e.gpa?'GPA: '+e.gpa:''));
+
+  state.sections.forEach(sec=>{
+    addSection(sec.name);
+    sec.items.forEach(item=>{
+      const t = item['Job Title']||item['Project Name']||item['Title']||item['Certificate Name']||item['Language']||item['Role']||Object.values(item)[0]||'';
+      const sub = [item['Company'],item['Location'],item['Tech Stack'],item['Issuer'],item['Issuer / Organization'],item['Proficiency'],item['Organization']].filter(Boolean).join(' · ');
+      const date = item['Start–End Date']||item['Year']||'';
+      const desc = item['Description']||item['Skills List']||item['Link']||'';
+      addEntry(t,sub,date,desc);
+    });
+  });
+
+  doc.save(`${(info.fullName||'Resume').replace(/\s+/g,'_')}_ResumeAI.pdf`);
+}
+
+renderPage();
+</script>
+</body>
+</html>
